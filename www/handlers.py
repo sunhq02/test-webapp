@@ -15,7 +15,7 @@ import time
 
 import markdown2
 from aiohttp import web
-from apis import APIError, APIValueError, APIPermissionError
+from apis import APIError, APIValueError, APIPermissionError, Page
 from config import configs
 from coroweb import get, post
 from models import Blog, Comment, User, next_id
@@ -165,6 +165,14 @@ def signout(request):
     return r
 
 
+@get('/manage/blogs')
+async def manage_blogs(*, page='1'):
+    return {
+        '__template__': 'manage_blogs.html',
+        'page_index': get_page_index(page)
+    }
+
+
 @get('/manage/blogs/create')
 def manage_create_blog():
     return {
@@ -205,14 +213,25 @@ async def api_register_user(*, email, name, passwd):
     return r
 
 
+@get('/api/blogs')
+async def api_blogs(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.findNumber('count(id)')
+    p = Page(num, page_index)
+    if num == 0:
+        return dict(page=p, blogs=())
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    return dict(page=p, blogs=blogs)
+
+
 @get('/api/blogs/{id}')
-def api_get_blog(*, id):
-    blog = yield from Blog.find(id)
+async def api_get_blog(*, id):
+    blog = await Blog.find(id)
     return blog
 
 
 @post('/api/blogs')
-def api_create_blog(request, *, name, summary, content):
+async def api_create_blog(request, *, name, summary, content):
     check_admin(request)
     if not name or not name.strip():
         raise APIValueError('name', 'name cannot be empty.')
@@ -222,5 +241,5 @@ def api_create_blog(request, *, name, summary, content):
         raise APIValueError('content', 'content cannot be empty.')
     blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name,
                 user_image=request.__user__.image, name=name.strip(), summary=summary.strip(), content=content.strip())
-    yield from blog.save()
+    await blog.save()
     return blog
