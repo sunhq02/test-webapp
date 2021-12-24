@@ -9,10 +9,9 @@
 var
     ID = '{{ id }}',
     action = '{{ action }}';
-var vm;
 
 function initVM(blog) {
-    vm = new Vue({
+    var vm = new Vue({
         el: '#vm',
         data: blog,
         methods: {
